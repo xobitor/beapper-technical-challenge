@@ -7,7 +7,7 @@ export type PaymentStatus = 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED';
  * A single payment taken from the subscriber.
  *
  * This is the app's domain model for a payment. All fields are required;
- * the mapper {@link mapPaymentDtoToPayment} applies defaults when mapping
+ * the mapper mapPaymentDtoToPayment applies defaults when mapping
  * from the optional API DTO.
  */
 export interface Payment {
