@@ -2,9 +2,11 @@ import {SmartyFlatList} from '@smarty-app/controls';
 import {SmartyPrimaryButton, SmartyText} from '@smarty-app/controls-basic';
 import {en} from '@smarty-app/language';
 import {usePaymentHistoryApiInteraction} from '@smarty-app/ui-api-interaction';
-import {JSX} from 'react';
+import {JSX, useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   RefreshControl,
   View,
@@ -13,9 +15,14 @@ import {
 
 import {ApiErrorAlertPanel} from '../common/ApiErrorAlertPanel';
 import {SmartyRootScreenView} from '../common/SmartyRootScreenView';
-import {PaymentHistoryListItem} from './PaymentHistoryListItem';
+import {PaymentHistoryListItem} from '..';
 
 const WEB = Platform.OS === 'web';
+
+const SENTINEL_TEST_ID = 'payment-history-list-sentinel';
+
+/** Pixels before the viewport's end at which the next page is requested on web. */
+const WEB_FETCH_MARGIN = 200;
 
 /**
  * Main view for PaymentHistoryScreen.
@@ -24,6 +31,22 @@ const WEB = Platform.OS === 'web';
  * refresh and full loading/empty/error/retry handling. The same component is
  * used on both web and native; only the refresh mechanism differs
  * (pull-to-refresh on native, a visible Refresh button on web).
+ *
+ * A manual refresh is tracked locally and shows the list skeleton on web,
+ * matching the initial page load: `isManuallyRefreshing` covers the web
+ * Refresh button regardless of what the hook reports, and feeding it into
+ * `isLoading` makes `SmartyFlatList` swap its content for skeleton
+ * placeholders.
+ *
+ * Pagination is platform-specific because scrolling differs:
+ * - Native: scroll-position arithmetic in `onScroll` (the list is the actual
+ *   scroll container), replacing `onEndReached`, which also fires from
+ *   data/layout updates and chains fetches with no user interaction.
+ * - Web: the page scrolls, not the list's RN scroll container, so RN scroll
+ *   events never fire. A sentinel rendered after the list is observed with
+ *   an `IntersectionObserver`; when it enters the viewport the next page is
+ *   requested. Both paths only fire on real viewport movement, so an idle
+ *   screen never triggers requests.
  *
  * @param props Element properties.
  * @returns JSX.Element
@@ -43,11 +66,86 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
     loadMore,
   } = usePaymentHistoryApiInteraction();
 
-  const isEmpty = !isLoading && !isError && payments.length === 0;
+  const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
+  const sentinelRef = useRef<View | null>(null);
+  const loadMoreRef = useRef<() => void>(() => undefined);
+
+  const isLoadingRefresh = isLoading || refreshing || isManuallyRefreshing;
+
+  const isEmpty = !isLoadingRefresh && !isError && payments.length === 0;
+
+  const handleRefresh = () => {
+    refreshInFlight.current = true;
+    setIsManuallyRefreshing(true);
+    onRefresh();
+  };
+
+  useEffect(() => {
+    if (refreshInFlight.current) {
+      refreshInFlight.current = false;
+      setIsManuallyRefreshing(false);
+    }
+  }, [payments]);
+
+  const canLoadMore =
+    hasNextPage && !isLoadingRefresh && !isLoadingMore && !isError;
 
   const handleLoadMore = () => {
-    if (hasNextPage) {
+    if (canLoadMore) {
       loadMore();
+    }
+  };
+
+  useEffect(() => {
+    loadMoreRef.current = handleLoadMore;
+  });
+
+  useEffect(() => {
+    if (!WEB || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const node = document.querySelector<HTMLElement>(
+      `[data-testid="${SENTINEL_TEST_ID}"]`,
+    );
+    if (!node) {
+      return undefined;
+    }
+
+    let primed = false;
+    let wasIntersecting = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const isIntersecting = entries.some((entry) => entry.isIntersecting);
+
+        if (primed && isIntersecting && !wasIntersecting) {
+          loadMoreRef.current();
+        }
+
+        primed = true;
+        wasIntersecting = isIntersecting;
+      },
+      {rootMargin: `${WEB_FETCH_MARGIN}px`},
+    );
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [isLoadingRefresh, payments]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const {contentOffset, layoutMeasurement, contentSize} = event.nativeEvent;
+
+    if (contentOffset.y <= 0) {
+      return;
+    }
+
+    const distanceFromEnd =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+
+    if (distanceFromEnd <= layoutMeasurement.height * 0.5) {
+      handleLoadMore();
     }
   };
 
@@ -62,11 +160,11 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
         {WEB && (
           <SmartyPrimaryButton
             testID="payment-history-refresh-button"
-            onPress={onRefresh}
-            disabled={refreshing}
-            isLoading={refreshing}
-            className="smarty-w-mini smarty-mr-m">
-            {en.paymentHistoryRefresh}
+            onPress={handleRefresh}
+            disabled={isLoadingRefresh}
+            className="smarty-w-mini smarty-mr-m"
+            style={{width: 70}}>
+            {isLoadingRefresh ? <ActivityIndicator/> : '\u2B6E '}
           </SmartyPrimaryButton>
         )}
       </View>
@@ -101,8 +199,10 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
           testID="payment-history-list"
           data={payments}
           renderItem={({item}) => <PaymentHistoryListItem payment={item} />}
-          keyExtractor={(item) => item.id}
-          isLoading={isLoading}
+          keyExtractor={(item, index) => `item_${index}`}
+          isLoading={isLoadingRefresh}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           ListHeaderComponent={
             WEB ? undefined : (
               <View className="smarty-px-l smarty-py-s">
@@ -119,10 +219,14 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
               <View className="smarty-py-m justify-center items-center">
                 <ActivityIndicator size="small" />
               </View>
+            ) : WEB ? (
+              <View
+                testID={SENTINEL_TEST_ID}
+                ref={sentinelRef}
+                className="smarty-py-m"
+              />
             ) : undefined
           }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
           refreshControl={
             WEB ? undefined : (
               <RefreshControl

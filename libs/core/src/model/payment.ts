@@ -24,13 +24,3 @@ export interface Payment {
   /** Outcome of the payment. */
   status: PaymentStatus;
 }
-
-/**
- * Formats a payment's amount with its currency symbol.
- *
- * @param payment - The payment whose amount to format.
- * @returns A formatted price string, e.g. "£20.00".
- */
-export function formatPaymentAmount(payment: Payment): string {
-  return `${payment.amount.toFixed(2)}`;
-}
