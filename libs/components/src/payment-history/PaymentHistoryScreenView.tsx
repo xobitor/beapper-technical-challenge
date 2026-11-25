@@ -67,6 +67,7 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
   } = usePaymentHistoryApiInteraction();
 
   const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
+  const [isRetry, setIsRetry] = useState(false)
   const refreshInFlight = useRef(false);
   const sentinelRef = useRef<View | null>(null);
   const loadMoreRef = useRef<() => void>(() => undefined);
@@ -80,6 +81,11 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
     setIsManuallyRefreshing(true);
     onRefresh();
   };
+
+  const handleRetry = () => {
+    setIsRetry(true)
+    onRetry()
+  }
 
   useEffect(() => {
     if (refreshInFlight.current) {
@@ -157,7 +163,7 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
           accessibilityLabel={en.paymentHistoryTitle}>
           {en.paymentHistoryTitle}
         </SmartyText>
-        {WEB && (
+        {WEB && !isEmpty && (
           <SmartyPrimaryButton
             testID="payment-history-refresh-button"
             onPress={handleRefresh}
@@ -174,9 +180,10 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
           <ApiErrorAlertPanel />
           <SmartyPrimaryButton
             testID="payment-history-retry-button"
-            onPress={onRetry}
-            className="w-full">
-            {en.paymentHistoryRetry}
+            onPress={handleRetry}
+            className="w-full"
+            disabled={isRetry}>
+            {isRetry ? <ActivityIndicator /> : en.paymentHistoryRetry}
           </SmartyPrimaryButton>
         </View>
       )}
@@ -186,11 +193,6 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
           <SmartyText className="smarty-body-m text-foreground-secondary">
             {en.paymentHistoryEmpty}
           </SmartyText>
-          <SmartyPrimaryButton
-            testID="payment-history-empty-retry-button"
-            onPress={onRetry}>
-            {en.paymentHistoryRetry}
-          </SmartyPrimaryButton>
         </View>
       )}
 

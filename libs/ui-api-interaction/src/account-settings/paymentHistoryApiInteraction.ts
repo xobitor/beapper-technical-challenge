@@ -2,7 +2,7 @@ import {useGetUserPayments} from '@smarty-app/api-controller';
 import {ApiError, Payment} from '@smarty-app/core';
 import {en} from '@smarty-app/language';
 import {useApiErrorStateStore} from '@smarty-app/ui-state';
-import {useCallback} from 'react';
+import {useCallback, useEffect} from 'react';
 
 /**
  * The result of {@link usePaymentHistoryApiInteraction}, exposing the
@@ -109,9 +109,11 @@ function useErrorHandler(
   setErrorText: (errorText: string) => void,
   reset: () => void,
 ): void {
-  if (isError && error) {
-    setErrorText(error.message ?? en.error);
-  } else if (!isError) {
-    reset();
-  }
+  useEffect(() => {
+    if (isError && error) {
+      setErrorText(error.message ?? en.error);
+    } else if (!isError) {
+      reset();
+    }
+  }, [isError, error, reset, setErrorText]);
 }
