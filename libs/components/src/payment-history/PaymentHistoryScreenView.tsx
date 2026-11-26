@@ -91,6 +91,7 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
     if (refreshInFlight.current) {
       refreshInFlight.current = false;
       setIsManuallyRefreshing(false);
+      setIsRetry(false)
     }
   }, [payments]);
 
@@ -98,6 +99,7 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
     hasNextPage && !isLoadingRefresh && !isLoadingMore && !isError;
 
   const handleLoadMore = () => {
+    setIsRetry(false)
     if (canLoadMore) {
       loadMore();
     }
@@ -168,9 +170,9 @@ export function PaymentHistoryScreenView(props: ViewProps): JSX.Element {
             testID="payment-history-refresh-button"
             onPress={handleRefresh}
             disabled={isLoadingRefresh}
-            className="smarty-w-mini smarty-mr-m"
-            style={{width: 70}}>
-            {isLoadingRefresh ? <ActivityIndicator/> : '\u2B6E '}
+            className="smarty-w-mini smarty-mr-2xs"
+            style={{width: 55}}>
+            {isLoadingRefresh ? <ActivityIndicator/> : '\u2B6E'}
           </SmartyPrimaryButton>
         )}
       </View>

@@ -136,3 +136,5 @@ apps/web-e2e/test-id-reports/
 .claude/settings.local.json
 .claude/skills/local-*/
 specs/
+
+android/
