@@ -40,7 +40,8 @@ export const queryClient: QueryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * MILLIS_PER_MINUTE,
-      retry: MAX_API_RETRIES,
+      //retry: MAX_API_RETRIES,
+      retry: 0, // set to 0 to enforce the mock error scenarios, which would fail due to auto-retries
       retryDelay: (failureCount: number) => {
         return Math.min(1000 * Math.pow(2, failureCount), 10000);
       },

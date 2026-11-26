@@ -42,6 +42,9 @@
       "path": "../assets/tsconfig.lib.json"
     },
     {
+      "path": "../core/tsconfig.lib.json"
+    },
+    {
       "path": "../design-tokens/tsconfig.lib.json"
     },
     {
