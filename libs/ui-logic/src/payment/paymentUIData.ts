@@ -80,7 +80,7 @@ export function getPaymentStatusColor(status: PaymentStatus): string {
     case 'PAID':
       return 'text-foreground-secondary';
     case 'PENDING':
-      return 'text-foreground-tertiary';
+      return 'text-foreground-promo';
     case 'FAILED':
       return 'text-foreground-warning';
     case 'REFUNDED':
